@@ -1,0 +1,135 @@
+# DailyDeal - Redemption API v1 (proposal)
+
+## Preface
+
+A merchants oftentimes needs to be able to quickly invalidate / redeem an issued coupon of a customer. Therefore 2-dimensional barcodes can be used to automate and speedup the redemption process. The barcode provides all information that a system / user needs, to redeem the given coupon. [DailyDeal](http://www.dailydeal.de) is highly interested in providing it's merchants highly usable and easy to implement interfaces to fulfil that kind of task with the least possible effort on the side of the merchant. In addition DailyDeal supports most modern technologies that are used in the web today. In the case of redemption this leads to a 2-step solution for the redemption of DailyDeal coupons.
+
+## Versions
+
+DailyDeal will provide two distinct interfaces for merchants to redeem coupons. The first version will be deployed within a short amount of time, will be usable even inside older legacy software that lacks support for more modern protocols/concepts/paradigms and can be used even manually from within a standard browser.
+
+The second version of the redemption API will be deployed at a later point in time.
+
+### DailyDeal Redemption API - Version 1
+
+The DailyDeal Redemption API Version 1 (**DDRAv1**) consists of nothing more than a simple HTTP GET request towards a well specified endpoint at DailyDeals systems. The utilized [URI](http://en.wikipedia.org/wiki/Uniform_resource_identifier) will make sure proper authentication, authorization as well as it will provide proper [HTTP response codes](http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html) that represent the status of the redemption itself. Please find details in the sections below.
+
+### DailyDeal Redemption API - Version 2
+
+The DailyDeal Redemption API Version 2 (**DDRAv2**) will be a more sophisticated solution on top of the already existing HTTP [REST](http://de.wikipedia.org/wiki/Representational_State_Transfer) API that DailyDeal provides today. When deployed, a merchant will be able to obtain an authentication token when logging into the system using his credentials. The authentication token can be used for authentication afterwards for every kind of subsequent request. Another endpoint can be used then to redeem a DailyDeal coupon. The transferred data will be transported in [JSON](http://www.json.org/) format only and in the style of REST HTTP verbs as **POST**, **PUT** **(PATCH)**, **GET** and **DELETE** can be used to request and manipulate resources at DailyDeals systems.
+
+DailyDeal will inform all merchants as soon as the DDRAv2 is available.
+
+## Synopsis
+
+For the process of redemption several information is necessary. In detail this will be:
+
+- the couponcode
+- the security code
+- the merchant identifier (merchant id)
+
+In addition DailyDeal needs to make sure two things. Neither a user himself nor an attacker should be able to redeem a coupon. Besides that DailyDeal needs to make sure that a merchant himself is not able to mistakenly invalidate another merchants coupons. Therefore authentication as well as authorization need to be implememted inside the DDRA in either version.
+
+### Authentication
+
+In case of the DDRAv1 the merchant authentication will be done by a [shared secret](http://en.wikipedia.org/wiki/Shared_secret). This secret is only known to DailyDeal and the merchant itself and must not made public by the merchant.
+
+This shared secret is the **merchant id** provided by DailyDeal.
+
+The merchant id is the only variable that the merchants system needs to know to be able to generate a valid redemption URI for a given coupon. So all the merchants systems need to have the knowledge of the merchant id but should also store it in a secure manner.
+
+### Authorization
+
+The authorization needs to make sure, a merchant can not accidently redeem another merchants coupon. The DDRAv1 will therefore implement a number of secret [checksum algorithms](http://en.wikipedia.org/wiki/Checksum) that will be used to generate CRC's. In case a merchant accidently inserts a wrong couponcode/security code/merchant_id, DailyDeals systems will be able to detect such failure and react in a proper way.
+
+The process of redemption still remains easy to implement. DailyDeal encodes a fully qualified URI inside a coupons barcode [(QRCode)](http://en.wikipedia.org/wiki/QR-code). The merchants systems do have to extract this uri, add the merchants id to it and send a HTTP GET request to the resulting URI. In return DailyDeals systems provide redemption information using proper HTTP status codes as well as additional information in case of a redemption error.
+
+## Protocols
+
+The protocols that can be used to communicate with DailyDeals system are:
+
+- HTTP/1.0
+- HTTP/1.1
+
+## Dataformats
+
+Since all relevant data during a redemption request have to be provided inside a HTTP URI, data have to be encoded, to make sure even special characters can be transported without error. Some (error) responses of the DDRAv1 endpoint will include additional information. This information will be represented in the JSON standard. Please see examples below.
+
+### Encoding
+
+<s>The couponcode, the security code as well as the checksum algorithm identifier and the merchant id have to be encoded using **Base64**. The URI that can be extracted from a DailyDeal coupon already consists of Base64-encoded values only. The plain merchant id (usually an integer) has to be Base64-encoded before it is concatenated too the URI from the coupons barcode.</s>
+
+As long as as all needed URI values contain characters that can be used inside a URI/URL there is no need for string encoding. At the time of writing all id's seem to be URI-safe.
+
+### Characterset
+
+The character set supported is **UTF-8** only.
+
+## Implementation
+
+### Base URI Extraction
+
+The base URI for redemption actions can be extracted from the provided QRCode. Please consult QRCode documentation for your targeted platform / language to extract the base URI. It will have a form like that:
+
+_https://api.dailydeal.de/v1/redemptions/:coupon_code/:security_code/:crc_identifier/:crc/_
+
+The base URI contains slash-separated ('/') values:
+
+- :coupon_code - the coupon code that's printed on the coupon
+- :security_code - the security code that's printed on the coupon
+- :crc_identifier - a representation of the crc-algorithm used and known only to DailyDeal
+- :crc - the crc value calculated over the full redemption URI (including the merchant's id)
+
+### Redemption URI Creation
+
+The merchants software only has to add the merchant id to the previously extracted base URI for a redemption:
+
+_https://api.dailydeal.de/v1/redemptions/:coupon_code/:security_code/:crc_identifier/:crc/:merchant_id_
+
+## HTTP Request
+
+The created redemption URI can be used to invalidate the customers coupon. Therefore a HTTP GET request has to be issued:
+
+Request:
+
+    GET /v1/redemptions/:coupon_code/:security_code/:crc_identifier/:crc/:merchant_id
+    Host: api.dailydeal.de
+    Accept: application/json
+
+In case the merchants software is not able to set additional HTTP Headers ('Accept') the requested MIME-type can also be given in the URI itself. In that case the request has to be structured like so:
+
+Request:
+
+    GET /v1/redemptions/:coupon_code/:security_code/:crc_identifier/:crc/:merchant_id.json
+    Host: api.dailydeal.de
+
+## HTTP Response Codes
+
+The DDRAv1 endpoint responds with the following HTTP status codes:
+
+- 204 - coupon successfully redeemed
+- 409 - coupon redemption failed
+
+## JSON Responses
+
+In case of an error (409 response code) the API endpoint presents additional information regarding the error. The JSON response is structured like so:
+
+    {
+      "error": "some error",
+      "message": "some more detailed error message that helps track down possible bugs"
+    }
+
+## Support
+
+DailyDeal provides support for merchants via Email:
+
+[dev@dailydeal.de](mailto:dev@dailydeal.de)
+
+Additional support via phone will be provided in case it is necessary.
+
+## Authors
+
+**product owner:** Tim Baumann <tim.baumann@dailydeal.de>
+
+**developer:** Jan Roesner <jan.roesner@dailydeal.de>
+
