@@ -57,8 +57,6 @@ Since all relevant data during a redemption request have to be provided inside a
 
 ### Encoding
 
-<s>The couponcode, the security code as well as the checksum algorithm identifier and the merchant id have to be encoded using **Base64**. The URI that can be extracted from a DailyDeal coupon already consists of Base64-encoded values only. The plain merchant id (usually an integer) has to be Base64-encoded before it is concatenated too the URI from the coupons barcode.</s>
-
 As long as as all needed URI values contain characters that can be used inside a URI/URL there is no need for string encoding. At the time of writing all id's seem to be URI-safe.
 
 ### Characterset
